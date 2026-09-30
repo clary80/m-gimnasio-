@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#6d5848">
+<title>Mi Gimnasio</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,sans-serif;background:#f5efe8;color:#3f352e;padding-bottom:30px}
+header{background:#6d5848;color:white;padding:22px 18px;text-align:center;position:sticky;top:0;z-index:5}
+header h1{margin:0;font-size:25px}
+header p{margin:6px 0 0;font-size:13px;opacity:.9}
+main{max-width:720px;margin:auto;padding:15px}
+.card{background:white;border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:0 2px 10px #00000010}
+h2{font-size:18px;margin:0 0 13px}
+label{display:block;font-size:13px;font-weight:bold;margin:10px 0 5px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #ddd0c5;border-radius:10px;font-size:16px;background:#fff}
+textarea{min-height:70px;resize:vertical}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+button{border:0;border-radius:10px;padding:12px 14px;font-size:15px;font-weight:bold;cursor:pointer}
+.primary{background:#6d5848;color:white;width:100%;margin-top:14px}
+.secondary{background:#eee4dc;color:#4a3b31}
+.danger{background:#f5d9d5;color:#8b3025}
+.exercise{border:1px solid #e5d9d0;border-radius:13px;padding:13px;margin-top:12px}
+.exercise-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.exercise-title{font-weight:bold}
+.series{display:grid;grid-template-columns:35px 1fr 1fr 55px 42px;gap:6px;align-items:center;margin-top:8px}
+.series input{padding:9px;font-size:14px}
+.series button{padding:8px}
+.series-label{text-align:center;font-size:12px;color:#777}
+.small{font-size:12px;color:#756960}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat{background:#f5efe8;border-radius:12px;padding:12px;text-align:center}
+.stat strong{display:block;font-size:20px}
+.stat span{font-size:11px;color:#756960}
+.empty{text-align:center;color:#8a7d73;padding:18px}
+.badge{display:inline-block;background:#eee4dc;border-radius:20px;padding:6px 10px;font-size:12px}
+.row-actions{display:flex;gap:8px;margin-top:12px}
+.row-actions button{flex:1}
+#history .history-item{border-top:1px solid #eee2d8;padding:13px 0}
+#history .history-item:first-child{border-top:0}
+.hidden{display:none}
+@media(max-width:430px){
+ .grid{grid-template-columns:1fr}
+ .series{grid-template-columns:28px 1fr 1fr 48px 38px}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>🏋️ Mi Gimnasio</h1>
+<p>Registro de entrenamientos y progreso</p>
+</header>
+
+<main>
+<section class="card">
+<h2>📅 Nuevo entrenamiento</h2>
+<div class="grid">
+<div><label>Fecha</label><input type="date" id="date"></div>
+<div><label>Tipo</label>
+<select id="type">
+<option>Superior</option>
+<option>Inferior</option>
+<option>Full Body</option>
+<option>Cardio</option>
+<option>Otro</option>
+</select></div>
+</div>
+<div class="grid">
+<div><label>Peso corporal (kg)</label><input type="number" id="bodyWeight" step="0.1" placeholder="Ej. 65.5"></div>
+<div><label>Duración (min)</label><input type="number" id="duration" placeholder="Ej. 60"></div>
+</div>
+<label>Observaciones</label>
+<textarea id="notes" placeholder="Cómo te sentiste, energía, molestias, etc."></textarea>
+</section>
+
+<section class="card">
+<h2>💪 Ejercicios</h2>
+<div id="exercises"></div>
+<button class="secondary" style="width:100%;margin-top:12px" onclick="addExercise()">＋ Agregar ejercicio</button>
+<button class="primary" onclick="saveWorkout()">💾 Guardar entrenamiento</button>
+</section>
+
+<section class="card">
+<h2>📈 Resumen</h2>
+<div class="stats">
+<div class="stat"><strong id="totalWorkouts">0</strong><span>Entrenamientos</span></div>
+<div class="stat"><strong id="totalExercises">0</strong><span>Ejercicios</span></div>
+<div class="stat"><strong id="lastWeight">—</strong><span>Último peso kg</span></div>
+</div>
+</section>
+
+<section class="card">
+<h2>📋 Historial</h2>
+<div id="history"></div>
+</section>
+</main>
+
+<script>
+const KEY="mi_gimnasio_registro_v1";
+let workouts=JSON.parse(localStorage.getItem(KEY)||"[]");
+
+const defaultExercises={
+ "Superior":["Press de pecho","Remo","Press de hombros","Jalón al pecho","Bíceps","Tríceps"],
+ "Inferior":["Sentadilla","Prensa","Hip thrust","Peso muerto rumano","Extensión de piernas","Curl femoral"],
+ "Full Body":["Sentadilla","Press de pecho","Remo","Hip thrust","Press de hombros","Abdominales"],
+ "Cardio":["Caminata","Bicicleta","Elíptico"]
+};
+
+document.getElementById("date").value=new Date().toISOString().slice(0,10);
+
+function addExercise(name=""){
+ const wrap=document.createElement("div");
+ wrap.className="exercise";
+ wrap.innerHTML=`
+ <div class="exercise-head">
+   <span class="exercise-title">Ejercicio</span>
+   <button class="danger" onclick="this.closest('.exercise').remove()">Eliminar</button>
+ </div>
+ <input class="ex-name" placeholder="Nombre del ejercicio" value="${name}">
+ <div class="series">
+   <span class="series-label">#</span><span class="series-label">Reps</span><span class="series-label">Peso kg</span><span></span><span></span>
+ </div>
+ <div class="series"><b>1</b><input class="reps" type="number" placeholder="10"><input class="weight" type="number" step="0.5" placeholder="20"><button class="secondary" onclick="copySeries(this)">↗</button><input type="checkbox" class="done"></div>
+ <div class="series"><b>2</b><input class="reps" type="number" placeholder="10"><input class="weight" type="number" step="0.5" placeholder="20"><button class="secondary" onclick="copySeries(this)">↗</button><input type="checkbox" class="done"></div>
+ <div class="series"><b>3</b><input class="reps" type="number" placeholder="10"><input class="weight" type="number" step="0.5" placeholder="20"><button class="secondary" onclick="copySeries(this)">↗</button><input type="checkbox" class="done"></div>
+ <div class="series"><b>4</b><input class="reps" type="number" placeholder="10"><input class="weight" type="number" step="0.5" placeholder="20"><button class="secondary" onclick="copySeries(this)">↗</button><input type="checkbox" class="done"></div>`;
+ document.getElementById("exercises").appendChild(wrap);
+}
+
+function copySeries(btn){
+ const row=btn.parentElement, next=row.nextElementSibling;
+ if(next){
+   next.querySelector(".reps").value=row.querySelector(".reps").value;
+   next.querySelector(".weight").value=row.querySelector(".weight").value;
+ }
+}
+
+function loadDefaults(){
+ document.getElementById("exercises").innerHTML="";
+ (defaultExercises[document.getElementById("type").value]||[]).forEach(addExercise);
+}
+document.getElementById("type").addEventListener("change",loadDefaults);
+loadDefaults();
+
+function saveWorkout(){
+ const exercises=[...document.querySelectorAll(".exercise")].map(e=>({
+   name:e.querySelector(".ex-name").value.trim(),
+   series:[...e.querySelectorAll(".series")].slice(1).map(r=>({
+     reps:r.querySelector(".reps").value,
+     weight:r.querySelector(".weight").value,
+     done:r.querySelector(".done").checked
+   }))
+ })).filter(e=>e.name);
+
+ if(!exercises.length){alert("Agrega al menos un ejercicio.");return}
+ const workout={
+   id:Date.now(),
+   date:document.getElementById("date").value,
+   type:document.getElementById("type").value,
+   bodyWeight:document.getElementById("bodyWeight").value,
+   duration:document.getElementById("duration").value,
+   notes:document.getElementById("notes").value.trim(),
+   exercises
+ };
+ workouts.unshift(workout);
+ localStorage.setItem(KEY,JSON.stringify(workouts));
+ alert("Entrenamiento guardado ✅");
+ document.getElementById("bodyWeight").value="";
+ document.getElementById("duration").value="";
+ document.getElementById("notes").value="";
+ loadDefaults();
+ renderHistory();
+}
+
+function renderHistory(){
+ const box=document.getElementById("history");
+ if(!workouts.length){box.innerHTML='<div class="empty">Todavía no hay entrenamientos guardados.</div>'}
+ else box.innerHTML=workouts.map(w=>`
+ <div class="history-item">
+  <div style="display:flex;justify-content:space-between;gap:8px">
+   <div><b>${formatDate(w.date)}</b><br><span class="badge">${w.type}</span></div>
+   <button class="danger" onclick="deleteWorkout(${w.id})">Eliminar</button>
+  </div>
+  ${w.bodyWeight?`<p class="small">⚖️ Peso corporal: <b>${w.bodyWeight} kg</b></p>`:""}
+  ${w.duration?`<p class="small">⏱️ ${w.duration} min</p>`:""}
+  <ul>${w.exercises.map(e=>`<li><b>${e.name}</b>: ${e.series.filter(s=>s.reps||s.weight).map(s=>(s.reps||"—")+" reps × "+(s.weight||"—")+" kg").join(" · ")}</li>`).join("")}</ul>
+  ${w.notes?`<p class="small">📝 ${escapeHtml(w.notes)}</p>`:""}
+ </div>`).join("");
+
+ document.getElementById("totalWorkouts").textContent=workouts.length;
+ document.getElementById("totalExercises").textContent=workouts.reduce((a,w)=>a+w.exercises.length,0);
+ document.getElementById("lastWeight").textContent=workouts.find(w=>w.bodyWeight)?.bodyWeight||"—";
+}
+function deleteWorkout(id){
+ if(confirm("¿Eliminar este entrenamiento?")){
+  workouts=workouts.filter(w=>w.id!==id);
+  localStorage.setItem(KEY,JSON.stringify(workouts));
+  renderHistory();
+ }
+}
+function formatDate(s){
+ const [y,m,d]=s.split("-");
+ return `${d}/${m}/${y}`;
+}
+function escapeHtml(s){
+ return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+}
+renderHistory();
+</script>
+</body>
+</html>
